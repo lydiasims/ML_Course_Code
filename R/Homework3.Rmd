@@ -1,6 +1,8 @@
 ---
 title: "Homework 3: Imbalanced Land-Cover Classification with Logistic Regression"
 output:
+  pdf_document:
+    toc: true
   html_document:
     toc: true
     toc_float: true
@@ -49,6 +51,7 @@ This homework uses the modern R machine-learning ecosystem:
 library(tidymodels)
 library(themis)
 library(readr)
+library(ggplot2)
 
 theme_set(theme_minimal())
 
@@ -102,7 +105,9 @@ Answer in 1-3 sentences.
 - Why is this a classification problem rather than a regression problem?
 
 **Answer:**  
-TODO
+TODO: 
+
+The model is trying to predict land cover based on the spectral data from the satellite. Each pixel was labeled with a class of land cover and the model is trying to predict which pixels will be damp grey soil based on the observed spectra. Since each band measures the amount of a specific wavelength, and the ratios of these wavelengths determine the color which in turn determines land cover, this can not be a regression issue. Also we are trying to predict a characteristic instead of a measurable value which means it would be a classification model.  
 
 ## 2. Initial Data Checks
 
@@ -110,6 +115,11 @@ Before modeling, inspect the dataset. Verify the number of rows and columns, che
 
 ```{r data-checks}
 # TODO: inspect the dataset shape, column names, data types, missing values, and numeric summaries.
+dim(landsat) # lots of data, 36 bands?? 
+summary(landsat)
+any(is.na(landsat)) #false, matches with summary statistics
+glimpse(landsat) #alls numeric but damp_grey_soil
+unique(landsat$damp_grey_soil) # other and damp_grey_soil (this should be yes/no or some other binary characterization)
 
 # Hints: dim, glimpse, colSums, is.na, summary
 ```
@@ -119,7 +129,9 @@ Before modeling, inspect the dataset. Verify the number of rows and columns, che
 - Are the predictors mostly numeric or categorical?
 
 **Answer:**  
-TODO
+TODO: 
+
+All predictors are numeric, the only categorical variable is the land use being categorized as damp grey soil. 
 
 ## 3. Quantify Class Imbalance
 
@@ -129,7 +141,7 @@ Calculate the number and percentage of observations in each class. Then calculat
 # calculate class counts and percentages.
 
 count(landsat, damp_grey_soil)
-count(landsat, damp_grey_soil) %>% mutate(percent = n / sum(n) * 100)
+count(landsat, damp_grey_soil) %>% mutate(percent = n / sum(n) * 100) #9.7 vs 90.3
 ```
 
 ```{r imbalance-ratio}
@@ -147,7 +159,9 @@ Answer in 2-3 sentences.
 - Why is recall important when mapping a rare class?
 
 **Answer:**  
-TODO
+TODO:
+
+The model predicting the majority class for every row would have a 90% accuracy. That is a really high accuracy and would be considered acceptable because it covers majority of data and could be considered significant if p=0.1. The model's recall for the damp grey soil would be 0, it would not have correctly guessed any of the minority class. Recall is important because it measures the ratio between correctly estimated data (true positives) and the true number of cases (true positives and false negatives/missed detections). This shows how great/terrible the model predicted a case that is easy to incorrectly estimate. 
 
 ## 4. Create Train, Validation, and Test Sets
 
@@ -164,6 +178,20 @@ set.seed(42)
 
 # TODO: create train_data, validation_data, and test_data.
 # Use initial_split() twice and stratify by damp_grey_soil.
+
+dev_test_split <- initial_split(landsat,prop = 0.80,strata = damp_grey_soil) # 80% contains train and valitation, 20% is for test data
+dev_data <- training(dev_test_split)
+test_data <- testing(dev_test_split)
+dim(dev_data)
+
+train_val_split <- initial_split(dev_data,prop = 0.75,strata = damp_grey_soil) # now its total 60%/20% train and valitation
+
+validation_data=testing(train_val_split)
+train_data=training(train_val_split)
+
+dim(validation_data)==dim(test_data)# yay they are the same size 
+
+(dim(test_data)[1]/nrow(landsat))==0.2
 
 # Hints:
 # dev_test_split <- initial_split(...)
@@ -214,10 +242,13 @@ Answer each prompt in 2-4 sentences.
 
 **Answers:**
 
-1. TODO
-2. TODO
-3. TODO
-4. TODO
+1. Stratification is needed for this dataset because there are so few damp grey soil that random selection can easily put all samples into the testing dataset and mess up the model's fitting. Stratification makes every split of the dataset have an equivalent percentage of target variable, so that the model fitting isn't overcoming a poor data split.
+
+2. Validation set is the 'baby' test dataset. After model's are fitted and cross validated, different model structures can be compared with the validation dataset so there is no leakage of data when the final testing is done.
+
+3. Any steps that involve choosing the model or threshold should be done using the validation dataset. If the test dataset is used, we are giving the model the results of what we plan to test it on and this is a form of data leakage. 
+
+4. All these steps involve using multiple datapoints from the whole dataset to fill gaps, normalize, or increase resolution of data. Often this uses the mean or some kind of statistics to 'make up data'. Since this uses data that may not be together in the test/train splits, the machine 'gets an glance' at the full dataset and has an easier time estimating the predictors since it has access to that data.
 
 ## 5. Build Logistic-Regression Workflows
 
@@ -258,11 +289,32 @@ logistic_spec <- logistic_reg() %>%
 # logistic_workflow
 # upsampled_logistic_workflow
 
+baseline_workflow <- workflow() |>
+  add_recipe(logistic_recipe) |> # I assume this is the basic recipe
+  add_model(null_spec)
+
+logistic_workflow <- workflow() |>
+  add_recipe(logistic_recipe) |>
+  add_model(logistic_spec)
+
+upsampled_logistic_workflow <- workflow() |>
+  add_recipe(upsample_recipe) |>
+  add_model(logistic_spec)
+
 # Hint: use workflow(), add_recipe(), and add_model().
 ```
 
 ```{r fit-models}
 # TODO: fit all three workflows on train_data.
+
+baseline_fit=fit(baseline_workflow, data=train_data)
+logistic_fit=fit(logistic_workflow, data=train_data)
+upsampled_logistic_fit=fit(upsampled_logistic_workflow, data=train_data)
+
+baseline_fit
+logistic_fit
+upsampled_logistic_fit #such a big AIC
+
 
 # Hints:
 # baseline_fit <- fit(...)
@@ -280,7 +332,9 @@ Answer in 1-3 sentences.
 - Why must upsampling happen inside the training workflow?
 
 **Answer:**  
-TODO
+TODO:
+
+A majority-class baseline model will give us a 'control' model that will show how changing the model and the sampling recipe will impact the model and how they fit better or worse than the baseline model. A logistic regression can calculate the probability between two categorical variables, which is ideal for classification. Upsampling increases the resloution of a dataset by interpolating between previously recorded points. Upsampling has to happen in the training workflow to prevent data leakage into the test datasets, and the model should be able to run on data as it was recorded with minimal processing so it can truly predict.
 
 ## 6. Evaluate Models on the Validation Set
 
@@ -303,13 +357,22 @@ prob_col <- ".pred_damp_grey_soil"
 
 predict_with_threshold <- function(fit, new_data, threshold = 0.5) {
   # TODO: return a data frame with truth, predicted probabilities, and thresholded classes.
-
+    dev_predict=predict(fit, new_data=new_data, type='prob')%>%
+    bind_cols(new_data %>% select(damp_grey_soil))
+    dev_predict=dev_predict%>%
+    mutate(.pred_class = if_else(.pred_damp_grey_soil >= threshold, "damp_grey_soil", "other"))%>%
+    mutate(.pred_class = factor(.pred_class, levels = levels(damp_grey_soil)))
+    
+    return(dev_predict)
+    
   # Hints:
   # predict(...) #Only need to update this line!!
   # bind_cols(new_data %>% select(damp_grey_soil))
   # mutate(.pred_class = if_else(.pred_damp_grey_soil >= threshold, "damp_grey_soil", "other"))
   # mutate(.pred_class = factor(.pred_class, levels = levels(damp_grey_soil)))
 }
+
+
 
 calculate_metrics <- function(predictions) {
   tibble(
@@ -365,6 +428,13 @@ calculate_metrics <- function(predictions) {
 ```{r validation-metrics}
 # TODO: calculate validation metrics for all three models at threshold 0.5.
 
+
+baseline_val <- predict_with_threshold(baseline_fit, new_data=validation_data,threshold = 0.5)
+logistic_val <- predict_with_threshold(logistic_fit, new_data=validation_data,threshold = 0.5)
+upsampled_val <- predict_with_threshold(upsampled_logistic_fit, new_data=validation_data,threshold = 0.5)
+
+
+
 # Hints:
 # baseline_val <- predict_with_threshold(...)
 # logistic_val <- predict_with_threshold(...)
@@ -379,7 +449,10 @@ bind_rows(
 
 ```{r validation-confusion}
 # TODO: create confusion matrices for the two logistic-regression models.
-
+logistic_conf=conf_mat(data = logistic_val, truth = damp_grey_soil, estimate = .pred_class)
+upsample_conf=conf_mat(data = upsampled_val, truth = damp_grey_soil, estimate = .pred_class)
+logistic_conf
+upsample_conf
 # Hint:
 # conf_mat(...)
 ```
@@ -395,10 +468,13 @@ Using the validation results, answer in complete sentences.
 
 **Answers:**
 
-1. TODO
-2. TODO
-3. TODO
-4. TODO
+1. The baseline model has a high accuracy for predicting the class 'other'. This model did not once correctly predict 'damp grey soil' and that is why it has zero usefulness.
+
+2. While the logistic regression has a higher accuracy, the upsampled logistic regression has much better recall, which is preferred when modeling for rare cases. 
+
+3. The upsampled logistic regression has the highest recall (by a lot).
+
+4. Precision and specificity steeply drops between the original logistic and the upsampled logistic regressions. Specificity is highest in the baseline model, but it has no precision. 
 
 ## 7. Examine ROC and Precision-Recall Curves
 
@@ -418,6 +494,13 @@ bind_rows(
 ```{r pr-curve}
 # TODO: plot precision-recall curves for ordinary and upsampled logistic regression.
 
+bind_rows(
+   logistic_val %>% mutate(model = "Logistic regression"),
+   upsampled_val %>% mutate(model = "Upsampled logistic regression")
+) %>%
+   pr_curve(truth = damp_grey_soil, .pred_damp_grey_soil, event_level = "first") %>%
+   autoplot()
+
 # Hint: use pr_curve() and autoplot().
 ```
 
@@ -430,7 +513,11 @@ Answer in 3-6 sentences.
 - Which curve is more useful for thinking about missed rare land-cover areas versus false alarms?
 
 **Answer:**  
-TODO
+TODO:
+
+If the model is predicting correctly, as propotional to the dataset size, the precision-recall baseline will equal positive-class prevalence. The precision-recall baseline also better counts for thresholds. ROU-AUC are showing how good the model is at randomly guessing and being correct by focusing on true and false positives. Rare-class precision is going to focus on having a high recall to prevent false negatives. Two different models can have similar precentages of true/false positives, but like the upsampled logistic regression model, is focused on having higher rare-class precision. I think the precision-recall baseline is useful for missing rare land-cover areas as those are false negatives. False alarms would be addressed with ROU-AUC. 
+
+
 
 ## 8. Test Probability Thresholds Using Validation Data
 
@@ -458,7 +545,27 @@ best_threshold <- threshold_results %>%
 ```{r threshold-plot}
 # TODO: plot precision, recall, and F2 across thresholds.
 
+# I think these variables came in the long format ready to plot.
+ggplot()+
+  geom_line(data=threshold_results,aes(x=threshold, y=precision))+
+  labs(x="Thresholds",y="Precision")
+ggplot()+
+  geom_line(data=threshold_results,aes(x=threshold, y=recall))+
+  labs(x="Thresholds",y="Recall")
+ggplot()+
+  geom_line(data=threshold_results,aes(x=threshold, y=f2))+
+  labs(x="Thresholds",y="f2")
 # Hint: pivot precision, recall, and f2 into long format, then use ggplot().
+
+
+
+
+logistic_val2 <- predict_with_threshold(logistic_fit, new_data=validation_data,threshold = 0.38)
+upsampled_val2 <- predict_with_threshold(upsampled_logistic_fit, new_data=validation_data,threshold = 0.38)
+logistic_conf2=conf_mat(data = logistic_val2, truth = damp_grey_soil, estimate = .pred_class)
+upsample_conf2=conf_mat(data = upsampled_val2, truth = damp_grey_soil, estimate = .pred_class)
+logistic_conf2
+upsample_conf2
 ```
 
 ### Question 8: Threshold Choice
@@ -472,10 +579,13 @@ Answer in complete sentences.
 
 **Answers:**
 
-1. TODO
-2. TODO
-3. TODO
-4. TODO
+1. My threshold is below 0.5. Best threshold ended up as 0.38.
+
+2. False negatives are decreased when the threshold is lowered (recall is high).  There are also more false positives when the threshold is lowered from 0.5 (precision is lower, meaning the denominator/FP are higher).
+
+3. I would argue that in the rare-class focused model, the F2 selected threshold did make the model more useful. Looking at the confusion-matrix counts, the models (both logistic and upsampled logistic) saw an increase in True positives and False positives and a decrease in False negatives and True negatives. The upsampled logistic regression model specifically saw little change in true-damp_grey_soil and predicted-damp_grey_soil, and  true-other and predicted-other. This model had a relatively huge decrease from the previous threshold in false negatives (true-damp_grey_soil and predicted-other), 30 to 8. There was a large increase in false positives (true-other and predicted-damp_grey_soil), 463 to 541. For the rare-class example we are looking at, I think decreasing the missed detections (false negatives) is more important than having high false positives. 
+
+4. Maximizing F2 is not automatically the correct policy. As max F2 is trying to increase false positives, which is good for cases where to test again is affordable and we are looking for minority cases, like in the medical field or identifying risk. 
 
 ## 9. Final Evaluation on the Untouched Test Set
 
@@ -489,7 +599,7 @@ Do not use the test result to go back and choose a different model or threshold.
 
 final_test_predictions <- predict_with_threshold(upsampled_logistic_fit, test_data, threshold = best_threshold)
 calculate_metrics(final_test_predictions)
-onf_mat(final_test_predictions, truth = damp_grey_soil, estimate = .pred_class)
+conf_mat(final_test_predictions, truth = damp_grey_soil, estimate = .pred_class)
 ```
 
 ### Question 9: Methods and Limitations
@@ -500,7 +610,9 @@ Answer in a short paragraph.
 2. Where must resampling occur to avoid leakage when cross-validation is used?
 
 **Answer:**  
-TODO
+TODO: 
+
+Upsampling is benefical as it increases the presences of the minority class data without reducing the sample size (random undersampling) and changes the total fit of the model instead of adjusting during validation (class weighting). This method allows us to use the whole dataset in the splits and can be applied to the cross validation. In this example (and I assume is the correct way) the resampling occurs just after the dataset is split into test/train/validation, and it is applied while the model it being fit to the training set. This fit is applied to the validation and test when predicting off these new datasets. 
 
 ## Grading Rubric (25 points)
 
