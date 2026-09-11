@@ -1,6 +1,8 @@
 ---
 title: "Week 4 - Feature Engineering"
 output:
+  pdf_document:
+    toc: true
   html_document:
     toc: true
     toc_float: true
@@ -148,9 +150,12 @@ df <- df_wide %>%
 
 df <- df %>%
   mutate(
-    month_sin = # TODO: replace with month sine feature
-    month_cos = # TODO: replace with month cosine feature
+    month_sin = sin(2 * pi * month / 12), # TODO: replace with month sine feature
+    month_cos = cos(2 * pi * month / 12) # TODO: replace with month cosine feature
   )
+# month_sin has big numbers in the NH Summer
+# month_cos has big numbers in the NH Winter
+# I usually list if statement/for loop assigning "Winter","Spring","Summer","Fall" and count December as the next years winter since it aligns with right whale migrations and seasonal stratification patterns in the Gulf of Maine
 
 dim(df)
 head(df)
@@ -248,14 +253,23 @@ TODO: Add a historic monthly average temperature for each location.
 Be careful not to use future data when creating this column. For each grid cell and month, the value should be based only on previous observations from the same grid cell and calendar month.
 
 ```{r historic-monthly-average}
-df <- df %>%
-  arrange(lat, lon, month, time) %>%
-  group_by(lat, lon, month) %>%
-  mutate(
-    Month_Average_sst = # TODO: replace with historical monthly average
-  ) %>%
-  ungroup() %>%
-  drop_na()
+
+Month_Average_sst=NULL
+
+for (i in 1:length(df$lon)){
+  sample_row=df[i,]
+  df_subset=df%>%
+    filter(lon==sample_row$lon &
+           lat==sample_row$lat &
+           month==sample_row$month &
+           year<sample_row$year) # Lydia's grossest way to do it
+  
+  Month_Average_sst[i]=mean(df_subset$sst)
+}
+
+df$Month_Average_sst=Month_Average_sst # TODO: replace with historical monthly average
+
+
 
 df %>%
   select(lat, lon, time, month, sst, Month_Average_sst) %>%
