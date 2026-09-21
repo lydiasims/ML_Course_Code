@@ -1,7 +1,9 @@
 ---
 title: "In-Class Activity 5: Logistic Regression and Support Vector Machines"
-author: "GEOL 599: Machine Learning"
+author: 'GEOL 599: Machine Learning'
 output:
+  pdf_document:
+    toc: true
   html_document:
     toc: true
     toc_float: true
@@ -78,10 +80,16 @@ penguins_binary %>%
 
 How many observations are in each class? Is the dataset balanced?
 
+Gentoo has 123 observations and Chinstrap has 68. The data is not balanced, it favors the Gentoo classification of species.
+
 **Hint:** Use `count()` on the target column.
 
 ```{r question-1}
 # TODO: count the number of observations in each species class
+#count(penguins_binary$species) #this doesn't work
+length(penguins_binary$species[which(penguins_binary$species=="Gentoo")])
+
+length(penguins_binary$species[which(penguins_binary$species=="Chinstrap")])
 
 ```
 
@@ -104,6 +112,8 @@ ggplot(penguins_binary, aes(x = bill_length_mm, y = bill_depth_mm, color = speci
 ## Question 2
 
 Based on the scatterplot, do you expect a linear classifier to work well? Why or why not?
+
+Based on the scatterplot, the data will work well with a linear classifier. The data is close together which will cause some misclassification, but the Gentoo population on average have thinner bill depths as their bill length. 
 
 # Train/Test Split
 
@@ -208,6 +218,8 @@ accuracy_results
 
 Which model has the highest test accuracy? Are the differences large enough to be meaningful?
 
+The Linear SVM and the Logistic regression were tied with the highest accuracy, but the difference (0-0.021) between any of the models was not large enough to be meaningful.
+
 # Confusion Matrices
 
 Accuracy is useful, but it does not show which classes are being confused. Create a confusion matrix for each model.
@@ -242,6 +254,8 @@ ggplot(confusion_plot_data, aes(x = .pred_class, y = species, fill = n)) +
 ## Question 4
 
 Do any models make noticeably different types of mistakes? Explain using the confusion matrices.
+
+The models lean towards predicting Gentoo penguins more than Chinstraps (False positives if Gentoo is the yes/no predictor). All models perform well. The Logistic Regression and Linear SVM perform the same. The Polynomial SVM misses one detection (Predicts No Gentoo for Observed Gentoo). The RBF SVM replaces a true negative (Predicted Chinstrap-Observed Chinstrap) with an additional False Positive. 
 
 # Classification Metrics
 
@@ -337,8 +351,17 @@ if (requireNamespace("patchwork", quietly = TRUE)) {
 Compare the decision boundaries.
 
 - Which models produce straight decision boundaries?
+
+Logistic Regression and Linear SVM are straight. 
+
 - Which models produce curved decision boundaries?
+
+Polynomial SVM has an S-curved decision boundary. RBF SVM has a slight convex curve. 
+
 - Which model seems most appropriate for this dataset?
+
+I think that the Logistic Regression  is the most appropriate for this dataset. The lower slope correctly categorizes two test points (one Chinstrap and one Gentoo) and a Chinstrap training point over the Linear SVM, but there is still no significant difference between the models' performance. 
+
 
 # Kernel Exploration
 
@@ -354,12 +377,16 @@ Try changing:
 
 Choose one SVM kernel and change one parameter. What changed in the decision boundary?
 
+I changed the rbf_sigma to see a more flexible decision boundary. The result was an irregular polynomial curve. The convex curve reached its peak later than the original plot before turning into a concave boundary at the upper bill length limits. 
+
 **Hint:** Smaller `cost` usually allows a wider margin with more tolerance for mistakes. Larger `cost` tries harder to classify the training data correctly. For RBF kernels, larger `rbf_sigma` can create more local, flexible decision boundaries.
 
 ```{r kernel-experiment, fig.width=7, fig.height=5}
 # TODO: modify one SVM model below and visualize its decision boundary
 
-experiment_spec <- svm_ #TODO
+experiment_spec <-svm_rbf(cost = 1, rbf_sigma = 0.3) %>%
+    set_mode("classification") %>%
+    set_engine("kernlab")
 
 experiment_fit <- workflow() %>%
   add_recipe(penguin_recipe) %>%
@@ -387,7 +414,22 @@ experiment_predictions %>%
 Answer the following questions in a few sentences each.
 
 1. Why do we scale predictors before fitting an SVM?
+
+SVM (and logistical regressions) are very sensitive to the scale of the parameters, so it creates less issues to normalize the predictors. 
+
 2. How is logistic regression different from a linear SVM?
+
+Linear SVM prioritizes the points that are very near the boundary to create a model that will work better on test datasets and uses Hinge loss. Logistic regressions are more likely to be impacted by outliers but are equally (logorithmically) influenced by all datapoints in the training dataset. 
+
 3. What does the kernel do in an SVM?
+
+Kernel's change the decision boundary parameters and determines how the model will adjust to the spread of the data and the margins. 
+
 4. Why might a highly flexible kernel overfit?
+
+A highly flexible kernel will overfit the model by basing the decision boundary around specific individual points of the training data, which will not represent the test data. 
+
 5. In environmental science, when might a nonlinear decision boundary be useful?
+
+So many cases. You can determine if an organism is capable of reproduction based on food intake and temperatre/respiration rate. Metabolism rate sits on a standard performance curve that can be graphed with a proxy of temp/respiration.   
+
