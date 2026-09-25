@@ -1,7 +1,9 @@
 ---
 title: "In-Class Activity 6: Decision Trees, Random Forests, and Boosting"
-author: "GEOL 599: Machine Learning"
+author: 'GEOL 599: Machine Learning'
 output:
+  pdf_document:
+    toc: true
   html_document:
     toc: true
     toc_float: true
@@ -141,6 +143,8 @@ ggplot(class_counts, aes(x = reorder(land_cover, n), y = n)) +
 
 Is this classification problem balanced? Which land-cover classes are most and least common?
 
+This classification problem is not balanced. Damp_grey_soil is the least common and red_soil is the most common, closely followed by very_damp_grey_soil. There is a large gap the three most common (counts>1300) and the three least common (counts<710)
+
 # 3. Why Decision Trees Have Axis-Aligned Splits
 
 Decision trees split one feature at a time.
@@ -200,6 +204,8 @@ ggplot(landsat_two, aes(x = pixel_5_band_1, y = pixel_5_band_2, color = land_cov
 ## Question 2
 
 Looking at the scatterplot, where might a single decision tree struggle? Do the classes appear separable by only horizontal and vertical cuts?
+
+The classes cannot be seperated by only horizonal and vertical cuts. The red_soil would be easiest to seperate as it has a higher value for band 2 while overlapping all other land cover's band 1 values. All other classifications of land cover experience varying levels of overlap between each class. Damp_grey_soil experiences the most overlap of band 1 and 2 values with very_damp_grey_soil and grey_soil. 
 
 # 5. Fit a Shallow Decision Tree
 
@@ -300,6 +306,8 @@ plot_decision_boundary(
 
 What do you notice about the decision boundary? Why does it look like rectangles or stair steps?
 
+The decision boundaries look like rectangles and stair steps because they were split only by horizontal or vertically based on the values of band 1 and 2. These boundaries give large prediction areas to categories that have a wider band 1 spread (cotton_crop and red_soil), very poorly predicts damp_grey_soil, and fails to account for 2 other categories. 
+
 # 7. Compare Single Tree Depths
 
 Deeper trees are more flexible, but they can overfit.
@@ -332,6 +340,9 @@ wrap_plots(tree_depth_plots, ncol = 2)
 ## Question 4
 
 How does the decision boundary change as the tree gets deeper? Which model seems most likely to overfit?
+
+The decision boundaries become more irregular shaped polygons as the tree gets deeper. The model with the max depth of 30 seems more likely to overfit as the polygons for very_damp_grey_soil and damp_grey_soil are narrower to avoid too much overlapping with the red_soil predictions. 
+
 
 # 8. Compare Tree-Based Ensembles on the Same Two Features
 
@@ -407,6 +418,8 @@ two_feature_accuracy <- tibble(
 )
 
 two_feature_accuracy
+
+two_feature_accuracy$train_accuracy-two_feature_accuracy$test_accuracy
 ```
 
 ```{r two-feature-boundaries, fig.width=14, fig.height=11}
@@ -422,9 +435,23 @@ p1 / p2 / p3
 Compare the three decision boundaries.
 
 1. Which model has the simplest boundary?
+
+The decision tree model has the simplest boundaries as every boundary are mostly rectangular in shape. 
+
+
 2. Which model has the most complex boundary?
+
+The XGBoost model has the most complex boundaries. All vary in shape and thickness throughout each polygon. 
+
+
 3. Which model seems most likely to overfit?
+
+I think the Random forest model is most likely to overfit. The Random Forest model has blocky and disjointed boundaries when compared to the XGBoost model. The Random Forest model also performs better then all the other models on the training data but performs slightly worse than the XGBoost model on the test data. 
+
+
 4. Why do all tree-based boundaries still look somewhat blocky?
+
+The blockiness is from the binary decision-making that the model uses to create the boundaries, all of them are blocky because there are no diagonals. 
 
 # Part 2: Best Practices With All Spectral Features
 
@@ -544,6 +571,9 @@ cv_summary
 
 Which model has the best cross-validated macro F1 score? Does any model have much higher training accuracy than validation accuracy? What would that suggest?
 
+The Random forest model has the best cross-validated macro F1 score, but all except for the baseline model would have 'good' F1 scores. No model returned with a higher training accuracy than validation accuracy, if any did, we could consider them overfitted.
+
+
 # 12. Tune XGBoost
 
 XGBoost has many tuning parameters. We will tune only a few so the activity stays manageable.
@@ -605,6 +635,9 @@ final_xgb_wf <- finalize_workflow(xgb_tune_wf, best_xgb)
 
 Which parameters were selected for XGBoost? Were the selected trees shallow or deep? What does `sample_size` do?
 
+All parameters, except sample size, selected for the final XGBoost were the high end option. This created a lot (300 trees) of relatively deep trees (4). The learn rate was 0.1, mtry was 24, and sample size was 0.8.  The sample size is the fraction of rows of data that is used per tree for the model. While our final sample size was lowest suggested for the parameter, this is a higher value for what sample size can equal (usually 0.5-1.0). 
+
+
 # 13. Final Test-Set Evaluation
 
 Now evaluate the selected models on the test set.
@@ -663,6 +696,8 @@ ggplot(confusion_plot_data, aes(x = .pred_class, y = land_cover, fill = n)) +
 ## Question 8
 
 Which model performs best on the test set? Is that the same model that performed best during cross-validation? If not, why might that happen?
+
+The tuned XGBoost model performed the best on the test set. The Random forest had performed better during cross-validation. I think the tuning of the XGBoost model added to the increased performance and that the random forest model was at risk of overfitting. 
 
 # 14. Feature Importance and Permutation Importance
 
@@ -741,17 +776,47 @@ Which spectral features appear most important? Do the central-pixel bands appear
 
 Be careful: feature importance describes what the model used. It does not prove causation.
 
+Pixel 5 band 2 appears to be the most important, but band 2 highly represented in importance of variables. Central-pixel bands are more useful as pixel 5, 6, and 7 are the top three in importance, but pixel 4 is strangely absent. The neighboring-pixel spectral values help classify land cover as there is likely some auto correlation but could also be used to help scale the spectral values to reflect the true color of the targeted pixel that affected by environmental factors (clouds affecting spectral values). 
+
+
 # 15. Best-Practice Reflection
 
 Answer these questions in a few sentences each.
 
 1. Why is a single decision tree easy to interpret but prone to overfitting?
+
+The single tree is weighted very heavily in a model and has no probability to adjust the decision boundaries. 
+
+
 2. Why do decision tree boundaries look blocky in two dimensions?
+
+The binary decisions, made in the tree, splits the boundaries by horizontal and vertical lines only.
+
+
 3. How is a random forest different from a single tree?
+
+Random forest does multiple trees and bases the final decision on the majority of results from the forest. 
+
+
 4. How is boosting different from random forest bagging?
+
+Bagging runs in parallels to narrow variance, while boosting corrects bias through tuning. 
+
+
 5. Why should XGBoost be tuned with cross-validation instead of directly on the test set?
+
+Test set is only for the final run to prevent data leakage. 
+
+
 6. Why is permutation importance useful, and what are its limitations?
+
+We can see what the model is relying on. The limitations are that the paramters that it relys on may be from an incorrect assumption and make the model fundementally wrong. 
+
+
 7. For environmental remote-sensing datasets, why might random train/test splits still be too optimistic?
+
+Sptatial and temporal auto correlations and the processed data (depending on what level you use) will be a source of data leakage. 
+
 
 # Key Takeaways
 
