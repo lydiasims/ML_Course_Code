@@ -1,7 +1,9 @@
 ---
-title: "Homework 4: Spatial and Temporal Blocking for Model Evaluation"
-author: "GEOL 599: Machine Learning"
+title: 'Homework 4: Spatial and Temporal Blocking for Model Evaluation'
+author: 'GEOL 599: Machine Learning'
 output:
+  pdf_document:
+    toc: true
   html_document:
     toc: true
     toc_float: true
@@ -18,6 +20,8 @@ library(ranger)
 library(gstat)
 library(sf)
 library(sp)
+
+library(ggplot2)
 
 tidymodels_prefer()
 set.seed(42)
@@ -63,9 +67,16 @@ Look at the dataset metadata above.
 Questions to answer:
 
 1. What are the dimensions of the dataset?
+The dimensions of this dataset are lon, lat, time in 43, 31, 116
+
 2. What is the spacing between latitude and longitude grid cells?
+The spatial resolution is a 4x4 deg grid, so 4 degrees between each latitude and longitude grid cell
+
 3. How many time steps are included?
+The temporal resolution is 1992 through 2020, at three month intervals. Each time point is the 1st of the month for January, April, July, and October. 
+
 4. Why might neighboring grid cells have similar SST values?
+Spatial auto-correlation and large-scale physical drivers could cause lack of variation in surface temperature (little surface wind, no upwelling). 
 
 **Your answer:** TODO
 
@@ -106,6 +117,7 @@ Write a short answer after running the plots.
 **Prompt:** Based on the maps and time series, where do you expect random cross-validation to be misleading? Consider both nearby locations and nearby times.
 
 **Your answer:** TODO
+Random cross-validation can create unbalanced folds for seasons and spatial extents. I expect random cross-validation would be misleading around the equator, as temperatures will be more consistent regardless of season and temperate regions could align with lower/higher latitudes when they are in their hottest/coldest season. I am specifically thinking the western/warm and eastern/cool boundary currents being randomly selected and misleading the model towards the equator and poles. We also have spatial autocorrelation to account for and the temporal oscillation between the hemispheres. 
 
 # 3. Convert Gridded Data to a Machine-Learning Table
 
@@ -172,6 +184,21 @@ Examples:
 ```{r additional-exploration}
 # TODO: Add at least two exploratory checks of your own.
 
+df2=df
+df2$month=as.factor(df2$month)
+ggplot()+
+  geom_point(data=df2,aes(x=sst,y=lat,color=month))+
+  labs(x="Sea Surface Temperature (deg C)", y="Latitude (deg N)")+
+  scale_color_manual(values=c("1"="red","4"="gold","7"="green3","10"="blue"))+
+  theme_minimal()
+
+
+ggplot()+
+  geom_histogram(data=df,aes(x=sst),bins=15)+
+  facet_wrap(~year)+
+  labs(x="Sea Surface Temperature (deg C)", y="Count")+
+  theme_minimal()
+
 ```
 
 ## TODO: Historical Monthly SST Feature
@@ -192,7 +219,7 @@ The idea is:
 # Example scaffold:
 df <- df %>%
    group_by(lat, lon, month) %>%
-   mutate(Month_Average_sst = #TODO) %>%
+   mutate(Month_Average_sst = dplyr::lag(cummean(sst))) %>%
    ungroup()
 
 df <- df %>%
@@ -305,8 +332,14 @@ random_summary
 Questions:
 
 1. What is the average RMSE under random k-fold CV?
+Average RMSE is 0.4633453
+
 2. Why might this number be too optimistic?
+There are spatial and temporal auto correlations that have not been accounted for and based on previous questions, I assume this leans towards a 'better' preforming model than the data truely is showing (because thats how all physical oceanography data acts).
+
 3. In this dataset, what kinds of information can leak from the training folds into the test fold?
+Data leaks can be from surrounding points and depending on the preprocessing that happened to the data (before we got it) there could be interpolation for missing values. I think also randomly selecting data from later months in the year and can leak data if earlier points are excluded. 
+
 
 **Your answer:** TODO
 
@@ -322,13 +355,18 @@ This is a better approximation of forecasting or prediction into future time per
 # TODO: Complete temporal block cross-validation.
 
 # Step 1: create grouped folds by year.
-temporal_cv <- NULL # replace NULL with group_vfold_cv(...)
+temporal_cv <- group_vfold_cv(model_data,group=year,v=5) # replace NULL with group_vfold_cv(...)
 
 # Step 2: run blocked cross-validation.
-temporal_results <- NULL # replace NULL with fit_resamples(...)
+temporal_results <- fit_resamples(
+  sst_workflow,
+  resamples = temporal_cv,
+  metrics = regression_metrics,
+  control = control_resamples(save_pred = TRUE)
+) # replace NULL with fit_resamples(...)
 
 # Step 3: display the results.
-temporal_results
+collect_metrics(temporal_results)
 ```
 
 ## TODO: Summarize Temporal CV
@@ -337,7 +375,8 @@ Use `summarize_resamples()` to create a one-row summary for temporal block CV.
 
 ```{r temporal-summary}
 # TODO: Summarize your temporal CV results.
-temporal_summary <- NULL
+# random_summary <- summarize_resamples(random_results, "Random k-fold CV")
+temporal_summary <- summarize_resamples(temporal_results, "Blocked Temporal k-fold CV")
 
 temporal_summary
 ```
@@ -347,9 +386,16 @@ temporal_summary
 Questions:
 
 1. Is temporal block CV better or worse than random CV?
+Temporal block performs better than the random CV!
+
 2. What does the difference tell you?
+Random CV's does not account for temporal autocorrelation, but when accounted the model fits better. 
+
 3. Does the model appear to generalize well to unseen years?
+There is a decent ability to predict unseen years but does not perform as well as random k-fold model based on R2. 
+
 4. Would this be a fair test if your real goal were to predict future years?
+I think this would be a fair test if were were to predict future seasonally averaged Pacific surface temperature
 
 **Your answer:** TODO
 
@@ -400,9 +446,14 @@ residual_sf <- st_as_sf(
 
 residual_sp <- as(residual_sf, "Spatial")
 
-residual_variogram <- #TODO: Use variogram()
+residual_variogram <- gstat::variogram(
+  residual ~ 1,
+  data = residual_sp
+)
+#TODO: Use variogram()
 
 plot(residual_variogram, main = "Variogram of cross-validated residuals")
+residual_variogram$dist[which.max(residual_variogram$gamma)]
 ```
 
 ## Create Spatial Blocks
@@ -411,8 +462,10 @@ Once you have estimated the extent of spatial autocorrelation, use that informat
 
 ```{r create-spatial-blocks}
 # TODO: choose block sizes based on your variogram or exploratory reasoning.
-lat_block_size <- NULL # replace NULL with a numeric block size, such as 5
-lon_block_size <- NULL # replace NULL with a numeric block size, such as 5
+# chosen based on distance with max semivariance (5.2X10^6)
+
+lat_block_size <- 5.2 # replace NULL with a numeric block size, such as 5
+lon_block_size <- 5.2 # replace NULL with a numeric block size, such as 5
 
 model_data <- model_data %>%
   mutate(
@@ -465,13 +518,18 @@ Hints:
 # TODO: Complete spatial block cross-validation.
 
 # Step 1: create grouped folds by spatial block.
-spatial_cv <- NULL # replace NULL with group_vfold_cv(...)
+spatial_cv <-group_vfold_cv(model_data,group=spatial_block,v=5) # replace NULL with group_vfold_cv(...)
 
 # Step 2: run blocked cross-validation.
-spatial_results <- NULL # replace NULL with fit_resamples(...)
+spatial_results <- fit_resamples(
+  sst_workflow,
+  resamples = spatial_cv,
+  metrics = regression_metrics,
+  control = control_resamples(save_pred = TRUE)
+)  # replace NULL with fit_resamples(...)
 
 # Step 3: display the results.
-spatial_results
+collect_metrics(spatial_results)
 ```
 
 ## Coding Task: Summarize Spatial CV
@@ -480,7 +538,8 @@ Use `summarize_resamples()` to create a one-row summary for spatial block CV.
 
 ```{r spatial-summary}
 # TODO: Summarize your spatial CV results.
-spatial_summary <- NULL
+
+spatial_summary <- summarize_resamples(spatial_results, "Blocked Spatial k-fold CV")
 
 spatial_summary
 ```
@@ -490,9 +549,17 @@ spatial_summary
 Questions:
 
 1. Is spatial block CV better or worse than random CV?
+The spatial block was better but not by much than the random CV (by mean RMSE).
+
 2. What does this say about the model's ability to predict in new locations?
+This model can predict new locations as well as the random k-fold model, which is very good at 0.997 R2 value.
+
 3. Why is latitude likely such a powerful predictor of SST?
+Higher latitudes (closer to the poles) receive less sunlight and are more likely to be cold/experience variable temperatures than the equator that gets consistent amounts of solar radiation. The degree of latitude determines the variability of temperature in these regions and can be averaged globally. 
+
 4. Why might a model still perform well in spatial blocks if the region has a strong latitudinal gradient?
+Latitude is the main predictor for this model, so a strong latitudinal gradient means a wider area to predict. Longitude has very little relationship to sea surface temperature (especially satellite products which perform poorly close to the coast)
+
 
 **Your answer:** TODO
 
@@ -600,16 +667,27 @@ Complete the plotting code below. You should produce a bar chart of mean RMSE fo
 # TODO: Create a bar chart of Mean RMSE by Evaluation strategy.
 # Hint: use ggplot(comparison, aes(x = Evaluation, y = `Mean RMSE`)) + geom_col()
 
+#ggplot(data=comparison,aes(x=Evaluation,y="Mean RMSE"))+
+#  geom_col()
+ 
+
+ggplot()+
+  geom_bar(data=comparison,aes(x=Evaluation,y=comparison$`Mean RMSE`),stat="identity",fill="slateblue2")+
+  labs(x="Evaluation",y="Mean RMSE")+
+  theme_minimal()
+  
 ```
 
 # 11. Final Reflection
 
 Write a brief paragraph answering the following:
 
-1. Which evaluation strategy gave the most optimistic result?
-2. Which evaluation strategy gave the most conservative result?
+1. Which evaluation strategy gave the most optimistic result? #best RMSE spat-temp
+2. Which evaluation strategy gave the most conservative result? #smallest mae random k fold
 3. Which strategy best matches a forecasting problem?
-4. Which strategy best matches prediction at unsampled locations?
+4. Which strategy best matches prediction at unsampled locations? #r2 random k fold
 5. Why should environmental scientists be cautious when reporting random cross-validation accuracy for spatial or temporal datasets?
 
 **Your answer:** TODO
+
+The problem hopes to predict the locations and time periods over large scales and the Spatial-Temporal k-fold best represents this, while also producing the most optimistic/best result based on RMSE. Random k-fold is technically the worst performing but does produce the most conservative results (smallest MAE) and can predict unsampled locations the best based on R2. This is because the broad selection of data (hemispheric, seasonal, long time series) has drowned the spatial and temporal relationship, which is one of the reasons that environmental scientists should make sure their model is accounting for the issues in their data before instead of applying random k-fold cv's for data that has a high likelyhood of being spatially or temporally autocorrelated.
