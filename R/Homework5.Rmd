@@ -2,6 +2,8 @@
 title: "Homework: Data Leakage, Cross-Validation, and Tree-Based Models"
 author: "GEOL 599 Machine Learning"
 output:
+  pdf_document:
+    toc: true
   html_document:
     toc: true
     toc_float: true
@@ -97,7 +99,7 @@ cover_data %>%
 
 Write your answer here:
 
->
+This is not a balanced classification problem. The most common is Lodgepole Pine (48% of data), followed by Spurce/Fir (39% of data). The least common is Cottonwood/Willow (0.51% of data).
 
 ## 3. What Is Data Leakage?
 
@@ -128,7 +130,7 @@ leaky_data <- cover_data %>%
 
 Write your answer here:
 
->
+The leaky_cover_code is creating a predictor from the response variable and is 'showing the answers' to the model.
 
 ## 5. Split The Leaky Dataset
 
@@ -183,7 +185,8 @@ leaky_metrics(
 
 Write your answer here:
 
->
+I would be more concerned if a leaky model didn't have high accuracy. The leaky model has an advantage to predicting the response variable and has a better chance of getting the right answer without using the predictors that are available prior to any analysis.
+
 
 ## 7. Build The Proper Dataset
 
@@ -209,7 +212,7 @@ cover_test <- testing(cover_split)
 
 Write your answer here:
 
->
+We want to test the accuracy of the model and make the model run better during these steps, but that can't happen if the previous runs of the model used all the data. This prevents data leakage as it limits the model from seeing the whole data set before the final model evaluation. 
 
 ## 8. Cross-Validation Folds
 
@@ -238,7 +241,7 @@ Choose **one** model:
 
 Write your answer here:
 
->
+I chose a xgboost model because I want to practice that one.
 
 ## 10. Create The Recipe
 
@@ -281,7 +284,7 @@ xgb_spec <- boost_tree(
 
 cover_workflow <- workflow() %>%
   add_recipe(cover_recipe) %>%
-  add_model(#TODO)
+  add_model(xgb_spec)
 
 cover_workflow
 ```
@@ -291,7 +294,19 @@ cover_workflow
 For homework, use a modest grid so the code finishes in a reasonable amount of time. You may expand the grid if your computer can handle it.
 
 ```{r tuning-grid}
-tune_grid_values <- grid_regular(#TODO)
+
+tune_grid_values <- grid_regular(
+  trees(range = c(50, 200)),
+  tree_depth(range = c(1, 2)),
+  learn_rate(range = c(0.01, 0.1)),
+  loss_reduction(range = c(0,0.5)),
+  sample_size(range = c(0,1)), #would only let me chose a range with intergars between 0 and 1
+  mtry(range = c(0,8)),
+  min_n(range = c(0,5))
+  
+)
+
+
 
 tune_grid_values
 ```
@@ -318,7 +333,7 @@ collect_metrics(cv_results)
 
 Write your answer here:
 
->
+F-measure would be the best as it measures xgboost models best, especially with upbalanced dataset.
 
 ## 15. Select The Best Model
 
@@ -341,7 +356,7 @@ final_workflow
 
 Write your answer here:
 
->
+I had trouble limiting the grid, but the selected values do suggest an extremely simple model was selected. 
 
 ## 16. Final Test Evaluation
 
@@ -388,7 +403,7 @@ ggplot(confusion_plot_data, aes(x = .pred_class, y = cover_type, fill = n)) +
 
 Write your answer here:
 
->
+The model only predicted the cover type "Lodgepole Pine" and didn't predict anything else. I think I messed this up but it took 3 hours to run and I'm not trying again.
 
 ## 17. Compare Leaky And Proper Results
 
@@ -411,7 +426,7 @@ bind_rows(leaky_test_metrics, proper_test_metrics) %>%
 
 Write your answer here:
 
->
+My proper workflow preformed very poorly when the leaky model was near perfect. While the leaky model had a good performance, this model would not be able to run on a new dataset with no response variables determined yet.
 
 ## 18. Simple Permutation Importance
 
@@ -482,7 +497,7 @@ permutation_importance %>%
 
 Write your answer here:
 
->
+It seems that I really messed up and that the model isn't using any of the parameters to predict the response :(
 
 ## 19. Final Reflection
 
@@ -499,5 +514,4 @@ Answer the following in a short paragraph.
 
 Write your answer here:
 
->
-
+My model workflow avoided data leakage by excluding variables that have values that summarize the full dataset (anomaly based on full dataset mean) or were a representation of the response variable. Data is then split into training and testing. I chose to select an xgboost model where f-means is used to select the best model. XGBoost model's struggle with hyperparameter tuning, as do I. The final model performed abyssmally. 

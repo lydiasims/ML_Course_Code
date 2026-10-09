@@ -1,6 +1,9 @@
 ---
-title: "In Class Activity 7: Deep Learning with torch"
+title: 'In Class Activity 7: Deep Learning with torch'
 output:
+  pdf_document:
+    toc: true
+    toc_depth: '2'
   html_document:
     toc: true
     toc_depth: 2
@@ -1378,6 +1381,7 @@ ggplot(
 ```
 
 ```{r}
+
 set.seed(RANDOM_STATE)
 
 drop_mask <- runif(
@@ -2116,8 +2120,23 @@ ggplot(
 ## Exit questions
 
 1. Why does a network need an activation function between dense layers?
+
+Activation functions force the network to focus on non-linear and real world relationships instead of simplifying the hidden layers in to linear interactions. 
+
 2. What is an epoch, conceptually?
+
+Epochs are the model being fitted on the entire training dataset all at once. Forcing the model that was already trained on a subset to review the full dataset reduces fit issues, as long as a reasonable number is used. 
+
 3. What does early stopping try to prevent?
+
+Early stopping tries to prevent the model from being overfitted through too many epochs. Early stopping trys to stop the model running more epochs just before the loss/rate of accuracy plateaus. 
+
 4. Why can dropout reduce overfitting?
+
+Dropouts test which hidden layers can be ignored and remove those relationships during training of the model. This prevents the model from conforming too closely to the training data and cuts out relationships made only out of the training data for validation stages. 
+
 5. What is a hidden unit doing here that logistic regression cannot do?
+
+A hidden unit is acting as a transformation of the input data so any non-linear relationships in the data can be reduced to and treated by a linear boundary. Logistic regressions aren't as useful when interacting with non-linearity. 
+
 
