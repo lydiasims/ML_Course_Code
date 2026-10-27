@@ -1,6 +1,10 @@
 ---
-title: "Homework: Predicting Marine Fish Life-History Strategies with a Multilayer Perceptron"
+title: "Homework: Predicting Marine Fish Life-History Strategies with a Multilayer
+  Perceptron"
 output:
+  pdf_document:
+    toc: true
+    toc_depth: '2'
   html_document:
     toc: true
     toc_depth: 2
@@ -144,7 +148,14 @@ prop.table(
 ### Question 1
 
 1. How many observations are in the dataset?
+
+There are 4,012 observations.
+
+
 2. Is the target approximately balanced?
+
+The target is perfectly evenly split 50-50 and therefore is balanced. 
+
 
 # 3. Explore environmental differences between classes
 
@@ -232,7 +243,13 @@ par(mfrow = c(1, 1))
 
 Describe at least **two environmental variables** that appear to differ between fast- and slow-life-history communities.
 
+Fast-life history organisms tend to be found in shallow depths and where sea bottom temperature is very warm and variable. Slow-life history organisms tend to be deeper with sea bottom temperatures being lower and more consistent. Chl-a does not have a noticeable difference in its relationship between the two categories of life histories. 
+
+
 Do these patterns prove that the environmental variable *causes* the life-history strategy? Explain.
+
+These patterns do not prove cause of the differing life history strategies. We could theorize that the slow-life history species are found in waters that stay consistent in temperature and are generally colder (aligns with deeper depths) as those conditions promote slower metabolisms. 
+
 
 # 4. Define predictors and target
 
@@ -477,7 +494,13 @@ cat(
 
 Why is logistic regression a useful baseline before fitting an MLP?
 
+The end goal is to classify the species into binary categories. The logistic regression is the most basic model that can take continous variables and output a binary category. 
+
+
 What kind of decision relationship can an MLP represent that logistic regression cannot represent without manually creating nonlinear features?
+
+The MLP can apply curves and bends into the decision boundary and apply variable weights to inputs and their interactions. 
+
 
 # 8. Helper functions for the neural network
 
@@ -570,7 +593,7 @@ train_torch_model <- function(
 ) {
 
   optimizer <- optim_adam(
-    model$parameters(),
+    model$parameters,
     lr = learning_rate,
     weight_decay = weight_decay
   )
@@ -807,23 +830,23 @@ mlp_net <- nn_module(
   ) {
 
     # TODO: create the hidden layer
-    self$hidden <- ______________________________
+    self$hidden <- nn_linear(7, hidden_units) # 7 environmental inputs, 8 units in the hidden layer (hidden_units)
 
     self$dropout <- nn_dropout(
       p = dropout_rate
     )
 
     # TODO: create the one-unit output layer
-    self$output <- ______________________________
+    self$output <- nn_linear(hidden_units,1)
   },
 
   forward = function(x) {
 
     # TODO: apply the hidden layer
-    x <- ______________________________
+    x <- self$hidden(x)
 
     # TODO: apply ReLU
-    x <- ______________________________
+    x <- nnf_relu(x)
 
     x <- self$dropout(
       x
@@ -938,8 +961,18 @@ par(
 Examine both plots.
 
 1. Does the model appear to be underfitting, overfitting, or reasonably fit?
+
+I am going to say that the model is not underfit or overfit. The Accuracy vs Epoch plot shows the validation data preforming better in the model then the training data with a "good fit" but the Loss vs Epoch plot is very concerning as the validation data does not level off. I assume there is some form of data leakage, where some data points of the validation split were included in the training dataset and likely the testing dataset is also leaked. 
+
+
 2. Around what epoch does validation loss stop improving substantially?
+
+The validation epoch curve does not stop improving substantially. The slope of the line is slightly less negative (smaller magnitude) around 30 Epochs. 
+
+
 3. Why can validation accuracy remain nearly constant while validation loss continues to change?
+
+Validation accuracy is measuring how often the model predicts a true positive, while the validation loss is showing the overall increase of true negatives and true positives over false negatives/positives. With more epochs, the model is able to dramatically increase it's precision/recall with true negatives while the total number true positives are not increasing (accuracy)
 
 # 12. Add early stopping
 
@@ -969,12 +1002,12 @@ early_fitted <- train_torch_model(
   y_fit = y_fit,
   X_validation = X_validation_scaled,
   y_validation = y_validation,
-  epochs = ______,                # TODO
+  epochs = 1000,                # TODO   # I also tried 30, 50, and 100 since 30 and 50 were saying the max was the best (before I saw the suggested 1,000)
   learning_rate = 0.01,
   early_stopping = TRUE,
-  patience = ______,              # TODO
-  min_delta = ______,             # TODO
-  restore_best_weights = ______   # TODO
+  patience = 20,              # TODO
+  min_delta = 1e-4,             # TODO
+  restore_best_weights = TRUE   # TODO
 )
 
 early_history_df <- early_fitted$history
@@ -1035,9 +1068,24 @@ cat(
 ### Question 5
 
 1. At what epoch was validation loss lowest?
+
+77 was considered the best epoch where validation loss was lowest. 
+
+
 2. At what epoch did training stop?
+
+The training stopped at 97 out of 1000 epochs.
+
+
 3. Why are those two epochs not necessarily identical?
+
+The patience parameter makes the model run that number of times once the lowest loss has been hit. This makes sure that the model is truly plateauing and allows for any noise to prevent the model from stopping too early. 
+
+
 4. What does `restore_best_weights = TRUE` do?
+
+`restore_best_weights = TRUE` reverts the weights of the model back to the optimal states based on the validation performance instead of using the final epoch which may be overfitted. 
+
 
 # 13. Experiment with model complexity
 
@@ -1149,6 +1197,14 @@ experiments <- rbind(
   #   hidden_units = 1
   # )
   # variables to change hidden_units, dropout_rate, and l2_strength
+  
+  evaluate_setting("1 hidden unit",hidden_units = 1),
+  evaluate_setting("32 hidden units",hidden_units = 32),
+  evaluate_setting("64 hidden units",hidden_units = 64),
+  evaluate_setting("8 hidden units and dropout 0.30",hidden_units = 8, dropout_rate = 0.30),
+  evaluate_setting("8 hidden units and L2 regularization",hidden_units = 8, l2_strength=1e-4) # used 'typical' weight decay value for Adam according to google
+  
+  
 
 )
 
@@ -1162,10 +1218,29 @@ results
 Using only the **validation results**:
 
 1. Does the 1-unit model appear to underfit?
+
+I would say that the 1-unit model was underfitted, as it had the highest validation loss despite being in the middle of other performance metrics. 
+
+
 2. Does increasing the number of hidden units consistently improve validation performance?
+
+According to these results, increasing the number of hidden units did improve the validation performance. 64-units had the best validation loss score (smallest loss) and the second highest accuracy. This model did not significantly outperform the 32-unit model and used much more epochs. Even though increasing the number of hidden units did improve performance, we need to evaluate this model for overfitting and the level of complexity from this model may result in it not being considered practical for analysis. 
+
+
 3. Did dropout help?
+
+Dropout did help the performance of the model. Dropout is supposed to help correct overfitting, and we see a low value for the best validation loss and the highest values for validation accuracy. I would claim that the dropout model performed the best of the experiments as it has best/second best values for validation metrics and attempted to correct for overfitting unlike the 64-unit model.
+
+
 4. Did L2 regularization help?
+
+I do not think L2 regularization helped. It resulted in worse accuracy and only slightly better validation loss that the 1-unit model. 
+
+
 5. Which model setting would you carry forward for final evaluation, and why?
+
+I would use the 8-unit with dropout of 0.30 as my final model setting. It had best/second best values for validation metrics (accuracy/ validation loss and auc) and attempted to correct for overfitting unlike the 64-unit model.
+
 
 # 14. Final model evaluation
 
@@ -1176,9 +1251,9 @@ Refit that model using the same fit/validation workflow and early stopping. Then
 ```{r}
 # TODO: replace these values with the settings you selected.
 
-FINAL_HIDDEN_UNITS <- ______
-FINAL_DROPOUT <- ______
-FINAL_L2 <- ______
+FINAL_HIDDEN_UNITS <- 8
+FINAL_DROPOUT <- 0.30
+FINAL_L2 <- 0
 ```
 
 ```{r}
@@ -1344,6 +1419,8 @@ Your answer should consider:
 - and whether the improvement is large enough to justify the more complicated model.
 
 A neural network is not automatically the better scientific model simply because it is more flexible.
+
+The MLP did outperform the logistic regression. The MLP did see a noticeable improvement in test accuracy, balanced accuracy, and roc auc. Since this dataset is perfectly numerically balanced, I think the sensitivity/recall that is accounted for in the roc auc and the balanced accuracy has very little sway in the final metric values. While I am happy to see this overall improvement in predictions and the model trys to correct for overfitting, I do not think the MLP was good enough to justify this complexity. The MLP metrics seem to state that the model is slightly more accurate and precise than the logistic regression (predicting true positives and negatives) but not to a degree than significance could be claimed. 
 
 # Grading guide
 
