@@ -1,9 +1,14 @@
 ---
 title: "In-Class Activity: How a CNN Reads Remote-Sensing Data"
+<<<<<<< HEAD
 subtitle: R torch version
 output:
   pdf_document:
     toc: true
+=======
+subtitle: "R torch version"
+output:
+>>>>>>> edbed1454cbe8079d8364020c98599e5aa5676c6
   html_document:
     toc: true
     toc_float: true
@@ -268,21 +273,30 @@ Use the upper-left 2 × 2 portion of the input and the kernel above:
 $$z=(x_{11})(1)+(x_{12})(-1)+(x_{21})(1)+(x_{22})(-1).$$
 
 ```{r hand-calculation}
+<<<<<<< HEAD
 z <- (input_band_matrix[1,1]*1)+(input_band_matrix[1,2]* -1)+(input_band_matrix[2,1]*1)+(input_band_matrix[2,2]* -1) # TODO: complete the hand calculation here
+=======
+z <- # TODO: complete the hand calculation here
+>>>>>>> edbed1454cbe8079d8364020c98599e5aa5676c6
 z
 ```
 
 **TODO**  
 1. Confirm that your value matches the upper-left cell of the output feature map.
+<<<<<<< HEAD
 My Z value was -0.3423 which matches the upper-left cell of the output feature map.
 
 2. What local pattern produces a large positive value?
 Overall, data that aligns with the weights of the kernal. In this example it would be the input values decreasing as we move to the right of the matrix. 
+=======
+2. In general, what local pattern produces a large positive value?
+>>>>>>> edbed1454cbe8079d8364020c98599e5aa5676c6
 
 ## Change the kernel
 
 Change the kernel to `[[1, 1], [-1, -1]]`.
 
+<<<<<<< HEAD
 ```{r altered kernal ex1}
 input_band_matrix <- X_image[sample_index, 1, , ]
 input_band <- torch_tensor(
@@ -347,6 +361,10 @@ ggplot(convolution_plot_data, aes(x = column, y = -row, fill = value)) +
 What direction of contrast does it detect?
 It is trying to determine is the data decreasing while moving downward through the rows of the input matrix but it has detected that the first rows are lower than the rest of the input matrix. 
 
+=======
+**TODO**  
+What direction of contrast does it detect?
+>>>>>>> edbed1454cbe8079d8364020c98599e5aa5676c6
 
 # Split before learning anything from the data
 
@@ -636,6 +654,7 @@ cat("Trainable parameters:", n_parameters, "\n")
 
 **TODO**  
 1. Why does the convolution produce 12 feature maps?
+<<<<<<< HEAD
 This is the number of hyperparameters/samples we included earlier. 
 
 
@@ -649,6 +668,11 @@ The number of hidden layers being introduced into the model, or the number of hy
 
 4. During evaluation, dropout is turned off. Why?
 Dropout is useful to prevent overfitting during training, as it randomly drops hidden layers. This is not useful when evaluating or validation as it doesn't give a full picture of how the model has been trained to perform. 
+=======
+2. Why is each feature map 2 × 2?
+3. What does `12 * 2 * 2` represent in the first dense layer?
+4. During evaluation, dropout is turned off. Why?
+>>>>>>> edbed1454cbe8079d8364020c98599e5aa5676c6
 
 # Train over epochs with early stopping
 
@@ -851,6 +875,7 @@ accuracy_plot
 
 **TODO**  
 1. Around which epoch was validation loss lowest?
+<<<<<<< HEAD
 Around 30, if I had to be more exact I would say the 29th Epoch. 
 
 
@@ -861,6 +886,10 @@ Training would perform at a ridiculous low loss and high accuracy that the valid
 4. Why should we select the stopping point using validation loss rather than test accuracy?
 Validation loss doesn't plataeu as much as the accuracy curve and it can more clearly show at what point are the epoch's considered a diminising return for improving the model. 
 
+=======
+3. What pattern would indicate overfitting?
+4. Why should we select the stopping point using validation loss rather than test accuracy?
+>>>>>>> edbed1454cbe8079d8364020c98599e5aa5676c6
 
 # Evaluate the untouched test set
 
@@ -965,6 +994,7 @@ ggplot(confusion_plot_data, aes(x = predicted, y = observed, fill = n)) +
 ## Model comparison
 
 1. Which model has higher balanced accuracy?
+<<<<<<< HEAD
 The small CNN had the highest balanced accuracy. 
 
 
@@ -978,6 +1008,11 @@ The CNN outperformed the logistic regression in all seen performance metrics, bu
 
 4. Why is a 3 × 3 patch useful for teaching CNN mechanics but limited compared with a larger satellite image tile?
 The 3x3 patch sets is great as it introduces to the mechanics of this model and its easy to keep track of numbers like 3 (grid) and 2 (kernel size) but reduces the usefulness of the model as it is only seeing a small glimpse of data and might struggle with the whole satellite image tile. 
+=======
+2. Which classes are most frequently confused?
+3. Does the CNN clearly outperform logistic regression? If not, give two plausible reasons.
+4. Why is a 3 × 3 patch useful for teaching CNN mechanics but limited compared with a larger satellite image tile?
+>>>>>>> edbed1454cbe8079d8364020c98599e5aa5676c6
 
 > A CNN is not automatically better. Its advantage depends on whether local spatial structure contains useful signal, whether the patch is large enough, and whether the amount of training data supports the added flexibility.
 
@@ -1078,6 +1113,7 @@ Do **not** use the test set for these experiments. Change one setting, refit fro
 
 Refit with `learning_rate = 0.001` and then `learning_rate = 0.05`.
 
+<<<<<<< HEAD
 ```{r exA 0.001}
 
 reset_random_seeds()
@@ -1213,10 +1249,13 @@ accuracy_plot
 - Does either value make validation loss unstable?
 0.05 makes the validation loss curve very unstable. 
 
+=======
+>>>>>>> edbed1454cbe8079d8364020c98599e5aa5676c6
 ## Experiment B: dropout
 
 Refit with `dropout = 0.0` and then `dropout = 0.50`.
 
+<<<<<<< HEAD
 ```{r 0.0}
 cnn <- build_cnn(
   n_classes = length(class_numbers),
@@ -1345,10 +1384,13 @@ The gap on the lower dropout increases with increasing epochs while the gap on t
 - Does stronger dropout cause underfitting?
 Based on these performance curves, I would say yes. The larger/stronger dropout caused the loss curve to plataeu very early and stayed high, which are signs of underfitting. 
 
+=======
+>>>>>>> edbed1454cbe8079d8364020c98599e5aa5676c6
 ## Experiment C: number of filters
 
 Call `build_cnn()` with `n_filters = 4` or `n_filters = 24`. The function calculates the dense-layer input size from the number of filters.
 
+<<<<<<< HEAD
 ```{r exC 4}
 
 cnn <- build_cnn(
@@ -1482,6 +1524,8 @@ Training accuracy increased a noticeable amount with increased capacity but was 
 Yes, the validation performance dropped loss from 0.5 to 0.25 with the added complexity from 4 to 24.
 
 
+=======
+>>>>>>> edbed1454cbe8079d8364020c98599e5aa5676c6
 ```{r experiment-starter, eval=FALSE}
 # Change only one setting at a time.
 EXPERIMENT_DROPOUT <- 0.50
@@ -1522,6 +1566,7 @@ experiment_fit$history
 Answer in a few sentences each.
 
 1. What information does the CNN use that logistic regression does not explicitly encode?
+<<<<<<< HEAD
 CNN uses the native spacing/spatial grid of the data, which is not accounted for in a basic logistic regression. 
 
 2. What is shared across image locations in a convolutional layer, and why is that useful?
@@ -1532,5 +1577,10 @@ relative spatial information, this is useful to correct for spatial autocorrleat
 4. Based on the evidence from this activity, is a CNN justified for these data? Defend your answer using at least two metrics or plots.
 I believe that the CNN is justified for this data. The test balanced accuracy was high at 0.855	and the CNN confusion matrix for the final test showed very low false predictions for all the categories. The unbalanced nature of this dataset makes this value kind of misleading but there was less that 45% misidentified soil composition for any category, as damp grey soil was the most misidentified but only had a total of 94 points. 
 
+=======
+2. What is shared across image locations in a convolutional layer, and why is that useful?
+3. Explain the difference between a learned filter and a feature map.
+4. Based on the evidence from this activity, is a CNN justified for these data? Defend your answer using at least two metrics or plots.
+>>>>>>> edbed1454cbe8079d8364020c98599e5aa5676c6
 
 The R `torch` documentation describes `nn_module()` for model definitions, `optim_adam()` for optimization, and `dataloader()` for mini-batch iteration: <https://torch.mlverse.org/docs/>.
